@@ -54,11 +54,19 @@ def get_circuitos_geojson(eleccion_id: str) -> dict:
             con.execute("SELECT id, nombre_normalizado FROM core.fuerzas_politicas").fetchall()
         )
 
+    # positivos por circuito — para poder mostrar, además del % de la lista DENTRO de su
+    # fuerza (votos_pct_fuerza, lo único que había hasta ahora), el % sobre el total de votos
+    # positivos del circuito. Pedido explícito del usuario: al elegir un candidato de una
+    # interna PASO, quiere ver los dos números, no solo el de la interna.
+    positivos_by_circuito: dict[str, int | None] = {row[0]: row[4] for row in totales}
+
     listas_by_circuito_fuerza: dict[tuple[str, str], list[dict]] = {}
     for circuito_id, fuerza, numero, lista_nombre, votos, pct in listas_rows:
         candidato = candidato_lista(categoria_id, numero) if categoria_id else None
+        positivos = positivos_by_circuito.get(circuito_id)
+        pct_total = round(votos * 100.0 / positivos, 2) if positivos else None
         listas_by_circuito_fuerza.setdefault((circuito_id, fuerza), []).append(
-            {"nombre": lista_nombre, "votos": votos, "pct": pct, "candidato": candidato}
+            {"nombre": lista_nombre, "votos": votos, "pct": pct, "pct_total": pct_total, "candidato": candidato}
         )
 
     detalle_by_circuito: dict[str, list[dict]] = {}

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { CircuitoProperties, CircuitosGeoJSON } from "../../lib/api";
-import { PARTY_HEX, PARTY_HEX_OTHER, metricValue, partyColor, swingColor, titleCase } from "../../lib/colors";
+import { PARTY_HEX, PARTY_HEX_OTHER, metricValue, metricValueTotal, partyColor, swingColor, titleCase } from "../../lib/colors";
 import { fmtNum } from "../../lib/format";
 import { currentMetric, useMapStore } from "../../store/mapStore";
 
@@ -18,7 +18,7 @@ function subtitulo(metricKey: string, compareMode: boolean, nombreBase: string, 
   }
   const fuerzaLabel = titleCase(metric.fuerza ?? "");
   if (metric.kind === "lista") {
-    return `Ordenado de mayor a menor % dentro de la interna de ${fuerzaLabel} (no es % del total de votos)`;
+    return `Ordenado de mayor a menor % dentro de la interna de ${fuerzaLabel} — entre paréntesis, el % sobre el total de votos del circuito`;
   }
   return compareMode
     ? `Ordenado por swing de ${fuerzaLabel}: ${nombreBase} → ${nombreActual}`
@@ -95,6 +95,7 @@ export function RankingList({ data, nombreBase, nombreActual }: Props) {
                 : (PARTY_HEX[metric.fuerza ?? ""] ?? PARTY_HEX_OTHER);
           const width = compareMode ? (Math.abs(v) / maxAbs) * 100 : (v / maxV) * 100;
           const label = compareMode ? `${v > 0 ? "+" : ""}${v.toFixed(1)}pp` : metric.kind === "winner" ? `+${v.toFixed(1)} pts` : `${v.toFixed(1)}%`;
+          const pctTotal = metric.kind === "lista" ? metricValueTotal(f, metric) : null;
           return (
             <div
               key={f.circuito_id}
@@ -125,6 +126,7 @@ export function RankingList({ data, nombreBase, nombreActual }: Props) {
                   </svg>
                 )}
                 {label}
+                {pctTotal != null && <span className="ml-1 font-normal text-ink-faint">({pctTotal.toFixed(1)}% total)</span>}
               </span>
             </div>
           );

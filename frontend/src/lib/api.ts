@@ -32,7 +32,8 @@ export interface Candidato {
 export interface ListaDetalle {
   nombre: string;
   votos: number;
-  pct: number | null;
+  pct: number | null; // % DENTRO de su fuerza (de la interna), no del total del circuito
+  pct_total: number | null; // % sobre el total de votos positivos del circuito
   candidato?: Candidato | null;
 }
 

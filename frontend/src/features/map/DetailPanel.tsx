@@ -34,7 +34,15 @@ function aggregateAll(data: CircuitosGeoJSON): FuerzaDetalle[] {
       pct: total ? (votos / total) * 100 : pctSum[fuerza] / nCircuitos[fuerza],
       candidato: candidatoByFuerza[fuerza],
       listas: Object.entries(aggListas[fuerza] ?? {})
-        .map(([nombre, entry]) => ({ nombre, votos: entry.votos, pct: votos ? (entry.votos / votos) * 100 : null, candidato: entry.candidato }))
+        .map(([nombre, entry]) => ({
+          nombre,
+          votos: entry.votos,
+          pct: votos ? (entry.votos / votos) * 100 : null,
+          // % sobre el total agregado de San Isidro (todas las fuerzas), no solo de su interna —
+          // mismo criterio que `pct_total` a nivel de un circuito puntual (ver api.ts).
+          pct_total: total ? (entry.votos / total) * 100 : null,
+          candidato: entry.candidato,
+        }))
         .sort((a, b) => b.votos - a.votos),
     }))
     .sort((a, b) => (b.votos ?? b.pct) - (a.votos ?? a.pct));
@@ -166,7 +174,10 @@ export function DetailPanel({ data, filteredData = data }: Props) {
                       {l.candidato ? l.candidato.nombre : titleCase(l.nombre)}
                     </span>
                     <span>{l.votos.toLocaleString("es-AR")}</span>
-                    <span className="min-w-9 text-right font-mono">{l.pct?.toFixed(1) ?? "—"}%</span>
+                    <span className="min-w-9 text-right font-mono" title="% dentro de la interna de su fuerza / % sobre el total de votos del distrito">
+                      {l.pct?.toFixed(1) ?? "—"}%
+                      <span className="ml-1 text-ink-faint">({l.pct_total?.toFixed(1) ?? "—"}% total)</span>
+                    </span>
                   </div>
                 ))}
               </div>

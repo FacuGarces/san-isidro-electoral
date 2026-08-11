@@ -116,6 +116,18 @@ export function metricValue(props: CircuitoProperties, metric: Metric): number {
   return row ? row.pct : 0;
 }
 
+// Complemento de metricValue() para metric.kind === "lista": el % del candidato sobre el TOTAL
+// de votos positivos del circuito (no de su interna) — pedido explícito del usuario para que,
+// al elegir un candidato de una interna PASO, se vea también cuánto sacó a nivel distrito, no
+// solo dentro de su propia fuerza. metricValue() sigue devolviendo el % de interna (es el que
+// ordena/colorea el ranking y el mapa) — este es puramente informativo, para texto.
+export function metricValueTotal(props: CircuitoProperties, metric: Metric): number | null {
+  if (metric.kind !== "lista") return null;
+  const row = props.detalle.find((d) => d.fuerza === metric.fuerza);
+  const lista = row?.listas.find((l) => l.nombre === metric.lista);
+  return lista?.pct_total ?? null;
+}
+
 export function fillColorFor(
   props: CircuitoProperties,
   metric: Metric,
