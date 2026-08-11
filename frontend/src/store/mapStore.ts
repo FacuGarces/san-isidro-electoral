@@ -57,6 +57,16 @@ export function filtroActivo(f: FiltroCircuitos): boolean {
   return f.busqueda.trim() !== "" || f.participacionMin != null || f.participacionMax != null;
 }
 
+// Un ítem de un lado del Versus: una fuerza o lista puntual (`key`, misma codificación que
+// `metricKey`) DENTRO de una elección puntual (`eleccionId`) — cada lado puede sumar más de uno
+// (p.ej. "LLA Intendente PASO 2023" + "Ramón Lanús individual") para modelar escenarios de
+// alianzas, pedido explícito del usuario. `id` es solo para la key de React (agregar/sacar filas).
+export interface VersusEntry {
+  id: string;
+  eleccionId: string;
+  key: string;
+}
+
 interface MapState {
   modo: Modo;
   // Selección directa por id de elección — nada de categoría+etapa intermedias. El usuario
@@ -64,27 +74,21 @@ interface MapState {
   // de filtros.
   actualId: string;
   metricKey: string;
-  // Modo "versus" (VersusPanel.tsx): 2 candidatos (fuerza o lista puntual, mismas claves que
-  // `metricKey`) comparados cabeza a cabeza circuito por circuito. Cada lado puede venir de una
-  // elección DISTINTA — `versusAEleccionId`/`versusBEleccionId` (`null` = usa `actualId`, el
-  // caso más común: comparar 2 candidatos de la elección que ya se está mirando). `versusAKey`/
-  // `versusBKey` son relativos a la elección de SU PROPIO lado, no a `actualId`. Todo `null`
-  // hasta que el usuario elige — VersusPanel arranca con un default razonable (interna del
-  // líder si tiene y ambos lados son la misma elección, si no las 2 fuerzas más votadas) sin
-  // necesidad de guardar ese default acá.
-  versusAEleccionId: string | null;
-  versusBEleccionId: string | null;
-  versusAKey: string | null;
-  versusBKey: string | null;
+  // Modo "versus" (VersusPanel.tsx): 2 lados comparados cabeza a cabeza circuito por circuito,
+  // cada lado es la SUMA de 1+ entradas (`VersusEntry`) — normalmente 1 sola, pero se puede
+  // agregar más para sumar fuerzas/candidatos de elecciones distintas (escenario de alianza).
+  // Arrays vacíos ([]) significa "todavía no personalizado" — VersusPanel arma un default de 1
+  // entrada razonable (interna del líder si tiene y ambos lados parten de la misma elección, si
+  // no las 2 fuerzas más votadas) sin necesidad de guardar ese default acá.
+  versusA: VersusEntry[];
+  versusB: VersusEntry[];
   activeCircuito: string | null;
   filtro: FiltroCircuitos;
   setModo: (m: Modo) => void;
   setActualId: (id: string) => void;
   setMetricKey: (key: string) => void;
-  setVersusAEleccionId: (id: string | null) => void;
-  setVersusBEleccionId: (id: string | null) => void;
-  setVersusAKey: (key: string) => void;
-  setVersusBKey: (key: string) => void;
+  setVersusA: (entries: VersusEntry[]) => void;
+  setVersusB: (entries: VersusEntry[]) => void;
   setActiveCircuito: (id: string | null) => void;
   setFiltro: (f: Partial<FiltroCircuitos>) => void;
   limpiarFiltro: () => void;
@@ -94,22 +98,15 @@ export const useMapStore = create<MapState>((set) => ({
   modo: "ver",
   actualId: "GENERALES2023_INTENDENTE",
   metricKey: "ganador",
-  versusAEleccionId: null,
-  versusBEleccionId: null,
-  versusAKey: null,
-  versusBKey: null,
+  versusA: [],
+  versusB: [],
   activeCircuito: null,
   filtro: FILTRO_VACIO,
   setModo: (m) => set({ modo: m, activeCircuito: null }),
-  setActualId: (id) =>
-    set({ actualId: id, activeCircuito: null, versusAEleccionId: null, versusBEleccionId: null, versusAKey: null, versusBKey: null }),
+  setActualId: (id) => set({ actualId: id, activeCircuito: null, versusA: [], versusB: [] }),
   setMetricKey: (key) => set({ metricKey: key }),
-  // Cambiar la elección de un lado invalida la clave de candidato de ESE lado (una fuerza/lista
-  // de la elección vieja no es válida para la nueva) pero no toca el otro lado.
-  setVersusAEleccionId: (id) => set({ versusAEleccionId: id, versusAKey: null, activeCircuito: null }),
-  setVersusBEleccionId: (id) => set({ versusBEleccionId: id, versusBKey: null, activeCircuito: null }),
-  setVersusAKey: (key) => set({ versusAKey: key, activeCircuito: null }),
-  setVersusBKey: (key) => set({ versusBKey: key, activeCircuito: null }),
+  setVersusA: (entries) => set({ versusA: entries, activeCircuito: null }),
+  setVersusB: (entries) => set({ versusB: entries, activeCircuito: null }),
   setActiveCircuito: (id) => set({ activeCircuito: id }),
   setFiltro: (f) => set((st) => ({ filtro: { ...st.filtro, ...f } })),
   limpiarFiltro: () => set({ filtro: FILTRO_VACIO }),

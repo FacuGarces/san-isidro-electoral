@@ -128,6 +128,18 @@ export function metricValueTotal(props: CircuitoProperties, metric: Metric): num
   return lista?.pct_total ?? null;
 }
 
+// Para el modo Versus (VersusPanel.tsx): a diferencia de "Ver en el mapa" (una sola elección,
+// tiene sentido comparar candidatos DENTRO de su propia interna), acá cada lado puede venir de
+// una elección distinta o sumar varias fuerzas/candidatos — comparar en base al % de interna de
+// cada uno mezclaría escalas que no significan lo mismo (bug reportado por el usuario: elegir
+// solo a un candidato de una interna PASO tomaba su % de interna en vez del % real que sacó en
+// el distrito). Por eso el Versus SIEMPRE usa el % sobre el total del circuito para una lista
+// puntual — metricValue() (con el % de interna) queda reservado para el mapa de "Ver resultados".
+export function metricValueVersus(props: CircuitoProperties, metric: Metric): number {
+  if (metric.kind === "lista") return metricValueTotal(props, metric) ?? 0;
+  return metricValue(props, metric);
+}
+
 export function fillColorFor(
   props: CircuitoProperties,
   metric: Metric,
