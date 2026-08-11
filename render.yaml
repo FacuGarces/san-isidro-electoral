@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: san-isidro-electoral-api
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHONPATH
+        value: .
+      - key: CORS_ALLOWED_ORIGIN
+        sync: false # setear a mano: la URL de GitHub Pages, p.ej. https://<usuario>.github.io

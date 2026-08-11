@@ -1,0 +1,21 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Node / frontend build
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+
+# Cache de descargas crudas (cientos de MB, regenerable con los importers — ver
+# docs/DATA_SOURCES.md). database/san_isidro.duckdb SÍ se versiona: es el dato ya procesado
+# que necesita el backend para correr, y así Render no tiene que re-correr todo el ETL.
+data/raw/
+data/processed/
+
+# OS / editor
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+.idea

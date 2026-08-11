@@ -1,0 +1,111 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Montserrat", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  /* Violeta claro como color principal (el blanco puro resultaba muy fuerte); las tarjetas
+     quedan en blanco para que resalten sobre el fondo, y el violeta oscuro se usa para texto
+     de marca y acentos. */
+  --color-bg: #F3EDFB;
+  --color-surface: #FFFFFF;
+  --color-surface-2: #EBE1F7;
+  --color-surface-hover: #F6F1FC;
+  --color-ink: #1B1030;
+  --color-ink-muted: #6B6180;
+  --color-ink-faint: #A79CC0;
+  --color-brand: #30115E;
+  --color-brand-2: #6425B8;
+  --color-line: #E1D4F3;
+  --color-line-strong: #CBB3E8;
+  --color-teal: #0E8E7E;
+
+  --color-party-jxc: #F0B300;
+  --color-party-lla: #8B2FE0;
+  --color-party-up: #1E88E5;
+  --color-party-fit: #C0392B;
+  --color-party-other: #8A8496;
+
+  /* Escala de elevación: sombras violeta-tintadas (nunca gris neutro puro) para que la
+     profundidad se sienta parte del mismo sistema de color, no un efecto genérico pegado
+     encima. Usadas en tarjetas/paneles/popovers en vez de solo `border`. */
+  --shadow-color: 271 45% 22%;
+  --shadow-xs: 0 1px 2px hsl(var(--shadow-color) / 0.06);
+  --shadow-sm: 0 1px 3px hsl(var(--shadow-color) / 0.08), 0 1px 2px hsl(var(--shadow-color) / 0.05);
+  --shadow-md: 0 4px 10px hsl(var(--shadow-color) / 0.08), 0 2px 4px hsl(var(--shadow-color) / 0.06);
+  --shadow-lg: 0 12px 28px hsl(var(--shadow-color) / 0.12), 0 4px 8px hsl(var(--shadow-color) / 0.06);
+  --shadow-xl: 0 24px 48px hsl(var(--shadow-color) / 0.16), 0 8px 16px hsl(var(--shadow-color) / 0.08);
+  --shadow-inset: inset 0 1px 2px hsl(var(--shadow-color) / 0.05);
+}
+
+/* Sin auto dark-mode por ahora: el pedido explícito es blanco como color principal, y
+   dejar que cambie solo según el sistema operativo generaba confusión (si tu SO está en
+   oscuro, nunca llegabas a ver el blanco). Si más adelante se quiere un modo oscuro, se
+   arma como toggle manual, no automático. */
+
+/* Utilities de elevación reutilizables (Tailwind v4 @utility, componen con variantes
+   como hover:/focus-within:). Reemplazan el uso de solo `border` para separar superficies —
+   el pedido fue alejarse de "cajitas planas" hacia algo con más profundidad deliberada. */
+@utility shadow-elevation-xs {
+  box-shadow: var(--shadow-xs);
+}
+@utility shadow-elevation-sm {
+  box-shadow: var(--shadow-sm);
+}
+@utility shadow-elevation-md {
+  box-shadow: var(--shadow-md);
+}
+@utility shadow-elevation-lg {
+  box-shadow: var(--shadow-lg);
+}
+@utility shadow-elevation-xl {
+  box-shadow: var(--shadow-xl);
+}
+
+* {
+  box-sizing: border-box;
+}
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+body {
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  /* Fondo con un leve resplandor radial arriba a la izquierda en vez de un violeta plano
+     uniforme — suma profundidad ambiental sin tocar la paleta ya aprobada. */
+  background:
+    radial-gradient(1100px 520px at 12% -8%, color-mix(in srgb, var(--color-brand-2) 10%, transparent), transparent 60%),
+    radial-gradient(900px 480px at 100% 0%, color-mix(in srgb, var(--color-teal) 7%, transparent), transparent 55%),
+    var(--color-bg);
+  background-attachment: fixed;
+}
+
+/* Scrollbar afinado (webkit) para que los paneles internos con overflow no se sientan
+   "de sistema operativo" — sutil, en tono violeta, sin volverse un elemento decorativo. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-line-strong);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-brand-2);
+  background-clip: padding-box;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-brand-2);
+  outline-offset: 2px;
+  border-radius: 4px;
+}

@@ -1,0 +1,25 @@
+from fastapi import APIRouter, HTTPException
+from fastapi.responses import JSONResponse
+
+from app.repositories.comparacion import get_comparacion_geojson
+from app.repositories.mapa import get_circuitos_geojson
+
+router = APIRouter(prefix="/mapa", tags=["mapa"])
+
+
+@router.get("/circuitos")
+def get_circuitos(eleccion_id: str):
+    geojson = get_circuitos_geojson(eleccion_id)
+    if not geojson["features"]:
+        raise HTTPException(status_code=404, detail=f"Sin datos para eleccion_id={eleccion_id!r}")
+    return JSONResponse(geojson)
+
+
+@router.get("/comparacion")
+def get_comparacion(actual: str, base: str):
+    geojson = get_comparacion_geojson(actual, base)
+    if geojson is None:
+        raise HTTPException(status_code=404, detail=f"actual={actual!r} o base={base!r} no existen")
+    if not geojson["features"]:
+        raise HTTPException(status_code=404, detail=f"Sin datos para actual={actual!r}, base={base!r}")
+    return JSONResponse(geojson)
