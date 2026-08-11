@@ -22,6 +22,11 @@ def read_connection():
     múltiples conexiones read_only concurrentes al mismo archivo sin conflicto con
     los scripts de import/ETL, que abren su propia conexión de escritura aparte."""
     con = duckdb.connect(str(settings.database_path), read_only=True)
+    # INSTALL es idempotente (no-op si ya está cacheada) — necesario igual antes de LOAD porque
+    # un filesystem nuevo (contenedor de Render en cada deploy, no solo la primera vez con el
+    # free tier) no tiene la extensión descargada todavía; sin este INSTALL, LOAD tira IOException
+    # "Extension ... not found" y el endpoint devuelve 500 (pasó en el primer deploy a Render).
+    con.execute("INSTALL spatial")
     con.execute("LOAD spatial")
     try:
         yield con
