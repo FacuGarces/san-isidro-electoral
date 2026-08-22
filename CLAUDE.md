@@ -396,11 +396,49 @@ nombre/dirección/localidad por mesa que 2023 no tenía.
   polígono, el popup de circuito siempre pisa al de escuela (no hay forma de "detener" un
   listener de capa desde otro en MapLibre, hay que consultar explícito qué hay arriba antes de
   decidir cuál popup mostrar).
-- **Lo que falta (no es un blocker de fuente, es trabajo pendiente):** todavía no se carga
-  `core.resultados_mesa` (voto por mesa) — el dato ya está en el mismo CSV de resultados que se
-  usa para `DIPUTADOS2025`, solo falta un loader que lo aproveche a nivel mesa en vez de
-  agregarlo a circuito. Sin eso, la capa de escuela muestra ubicación/mesas/electores pero no
-  ganador/% por escuela.
+- **Toggle "Colegios" (2026-08-22):** checkbox en el header de la columna Mapa (`MapPage.tsx`,
+  visible solo `!!establecimientos?.features.length`) que muestra/oculta la capa vía
+  `map.setLayoutProperty(ESTABLECIMIENTOS_LAYER_ID, "visibility", ...)` — nunca vacía la fuente,
+  los datos siguen cargados, solo se oculta la capa.
+
+## Voto por mesa — `core.resultados_mesa` cargado (2026-08-22)
+
+Cierra el pendiente de la sección anterior: ganador/% por escuela, no solo ubicación.
+
+- **Loader:** `backend/etl/load_resultados_mesa.py` — lee directo el CSV mesa-por-mesa ya
+  cacheado por `import_from_bulk_csv.py` (no hace falta un importer nuevo, el dato ya está
+  descargado), filtra por `cargo_nombre` y agrega por mesa (electores, votantes, positivos/
+  blanco/nulos, voto por fuerza). Requiere que `load_locales_votacion.py` haya corrido antes
+  para esa elección (necesita que `core.mesas` ya tenga las filas). Uso:
+  `PYTHONPATH=. python3 etl/load_resultados_mesa.py --resultados-csv-name resultados2025.csv
+  --eleccion-id DIPUTADOS2025 --cargo-nombre "DIPUTADO NACIONAL"`.
+- **Mismo gotcha de `mesa_id` no único en toda la provincia, pisado de nuevo acá:** la primera
+  versión filtraba solo por `mesa_id in mesa_ids_validos` (un set plano de números "1".."778")
+  sin restringir antes por circuito de San Isidro — sumó votantes de mesas de otros municipios
+  que reusan el mismo número, la participación agregada dio **7.162.417 votantes** (imposible,
+  San Isidro tiene ~270k electores). Fix idéntico al de `import_locales_votacion.py`: filtrar
+  primero por `circuito_id in ids_dine_san_isidro` (vía `load_circuitos_municipio`), recién
+  después chequear `mesa_id`. Verificado tras el fix: 105.296 votos LLA a nivel mesa, coincide
+  EXACTO con el agregado a nivel circuito ya confirmado — el mismo número, cero fuga.
+- **Endpoint `/mapa/establecimientos` extendido** (`get_establecimientos_geojson`): si hay voto
+  cargado, agrega por escuela sumando `resultados_mesa`/`resultados_mesa_totales` de sus mesas
+  y devuelve `ganador`, `candidato_ganador`, `participacion_pct`, `detalle[]` (mismo shape que
+  circuitos). Si no hay voto cargado para esa elección, esos campos vienen `null` y el frontend
+  cae a la versión chica del popup (solo ubicación) — nunca un 404, ver el criterio ya
+  documentado para este endpoint.
+- **Frontend:** `MapView.tsx` colorea cada punto por partido ganador (`withComputedColor()`,
+  inyecta `computed_color` en cada feature antes de `setData`, paint `["get",
+  "computed_color"]`) y el popup (`popupHtmlEstablecimiento`) muestra foto/nombre del ganador +
+  top 3 fuerzas + participación cuando hay voto, o la versión chica si no.
+- **Gotcha real de MapLibre, no específico de esta feature pero recién importó acá:**
+  propiedades anidadas (objetos/arrays) de una fuente GeoJSON pueden volver como STRING JSON
+  (no como objeto) cuando se leen desde `e.features` en un handler de evento — confirmado con
+  un `TypeError: top3.map is not a function` real en consola (`detalle` llegaba como string).
+  El popup de circuito ya accedía a `candidato_ganador` (objeto anidado) sin este problema
+  aparentemente porque nunca tocaba un array anidado como `detalle` en ese punto — para
+  cualquier propiedad anidada nueva leída desde un evento de mapa, pasarla por
+  `parsePosiblementeSerializado()` (JSON.parse solo si `typeof === "string"`, si no la devuelve
+  tal cual) antes de usarla — es gratis si no hace falta, y evita este bug si hace falta.
 
 ## Cómo cargar una elección/categoría nueva
 

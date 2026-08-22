@@ -184,10 +184,14 @@ Implementado en
 entre corridas) + `backend/etl/load_locales_votacion.py` (puebla `core.establecimientos` +
 `core.mesas`, tablas que ya estaban en el schema esperando esto). Expuesto en
 `GET /api/v1/mapa/establecimientos?eleccion_id=...` y como capa de puntos en el mapa
-(`MapView.tsx`) — **solo geografía + mesas/electores por ahora, no voto por escuela** (eso
-necesitaría cargar `core.resultados_mesa`, que sigue vacía; el dato ya está en el mismo CSV de
-resultados si se retoma esto). Solo cubre elecciones 2025 en adelante — 2023 sigue sin esta
-fuente, ver más arriba.
+(`MapView.tsx`), con toggle "Colegios" para mostrar/ocultar. Solo cubre elecciones 2025 en
+adelante — 2023 sigue sin esta fuente, ver más arriba.
+
+**Voto por mesa cargado (2026-08-22):** `backend/etl/load_resultados_mesa.py` puebla
+`core.resultados_mesa`/`core.resultados_mesa_totales` desde el mismo CSV, con ganador/detalle
+por fuerza y participación agregados por escuela en el endpoint de arriba. Mismo gotcha de
+`mesa_id` no único en la provincia (ver CLAUDE.md, sección "Voto por mesa") — verificado que la
+suma por mesa coincide exacto con el agregado por circuito ya confirmado (105.296 votos LLA).
 
 ## Concejales — no publicado por DINE para Buenos Aires (confirmado)
 

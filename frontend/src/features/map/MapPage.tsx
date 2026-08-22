@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api, type CircuitosGeoJSON } from "../../lib/api";
 import { participacionRamp, partyColor, partyRamp, titleCase, PARTY_HEX, PARTY_HEX_OTHER } from "../../lib/colors";
@@ -29,6 +29,7 @@ export function MapPage() {
   const setActiveCircuito = useMapStore((s) => s.setActiveCircuito);
   const filtro = useMapStore((s) => s.filtro);
   const metric = currentMetric(metricKey);
+  const [mostrarEscuelas, setMostrarEscuelas] = useState(true);
 
   const { data: elecciones } = useQuery({ queryKey: ["elecciones"], queryFn: api.elecciones });
 
@@ -138,7 +139,19 @@ export function MapPage() {
       {data && modo !== "versus" && (
         <div className="grid grid-cols-1 overflow-hidden rounded-3xl border border-line bg-surface shadow-elevation-md lg:grid-cols-[1.6fr_1fr] lg:divide-x lg:divide-line">
           <div className="divide-y divide-line border-b border-line lg:border-b-0">
-            <ColumnHeader title="Mapa" icon={<MapIcon />} />
+            <ColumnHeader title="Mapa" icon={<MapIcon />}>
+              {!!establecimientos?.features.length && (
+                <label className="flex cursor-pointer select-none items-center gap-1.5 text-[11px] font-semibold text-ink-muted">
+                  <input
+                    type="checkbox"
+                    checked={mostrarEscuelas}
+                    onChange={(e) => setMostrarEscuelas(e.target.checked)}
+                    className="h-3.5 w-3.5 accent-brand"
+                  />
+                  Colegios
+                </label>
+              )}
+            </ColumnHeader>
             <div className="p-6">
               {tieneInterna && metric.kind !== "lista" && (
                 <div className="mb-3 rounded-xl border border-brand-2/30 bg-surface-2 px-3 py-2 text-[11.5px] text-ink-muted">
@@ -146,7 +159,14 @@ export function MapPage() {
                 </div>
               )}
               <MetricSelect data={data} />
-              <MapView data={data} onHover={setActiveCircuito} nombreBase="" idsFiltrados={idsFiltrados} establecimientos={establecimientos} />
+              <MapView
+                data={data}
+                onHover={setActiveCircuito}
+                nombreBase=""
+                idsFiltrados={idsFiltrados}
+                establecimientos={establecimientos}
+                mostrarEscuelas={mostrarEscuelas}
+              />
 
               {metric.kind === "winner" ? <WinnerLegend data={data} /> : <GradientLegend metricKey={metricKey} dark={dark} />}
             </div>

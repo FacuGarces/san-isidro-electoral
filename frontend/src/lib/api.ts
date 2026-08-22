@@ -106,6 +106,13 @@ export interface CircuitosGeoJSON {
   resumen?: ComparacionResumen | null; // solo en modo comparación
 }
 
+export interface EstablecimientoFuerzaDetalle {
+  fuerza: string;
+  votos: number;
+  pct: number | null;
+  candidato?: Candidato | null;
+}
+
 export interface EstablecimientoProperties {
   establecimiento_id: string;
   nombre: string;
@@ -114,6 +121,16 @@ export interface EstablecimientoProperties {
   mesas: number;
   electores: number;
   circuito_id: string;
+  // Voto por mesa (core.resultados_mesa) — null cuando la elección tiene el mapeo mesa→escuela
+  // pero todavía no el voto agregado (ver docs/DATA_SOURCES.md, "Nivel mesa (escuela)").
+  votantes: number | null;
+  positivos: number | null;
+  blanco: number | null;
+  nulos: number | null;
+  participacion_pct: number | null;
+  ganador: string | null;
+  candidato_ganador?: Candidato | null;
+  detalle: EstablecimientoFuerzaDetalle[];
 }
 
 export interface EstablecimientosGeoJSON {

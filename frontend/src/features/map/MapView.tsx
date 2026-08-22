@@ -22,19 +22,85 @@ const EMPTY_ESTABLECIMIENTOS: EstablecimientosGeoJSON = { type: "FeatureCollecti
 const ESTABLECIMIENTOS_SOURCE_ID = "establecimientos";
 const ESTABLECIMIENTOS_LAYER_ID = "establecimientos-puntos";
 
-function popupHtmlEstablecimiento(props: EstablecimientoProperties): string {
-  return `
-    <div style="font-family:Montserrat,sans-serif;min-width:170px">
-      <div style="font-weight:700;margin-bottom:4px;">${titleCase(props.nombre)}</div>
-      <div style="font-size:11.5px;color:#6B6180;margin-bottom:6px;">${titleCase(props.direccion)}</div>
-      <div style="display:flex;justify-content:space-between;gap:12px;font-size:12.5px;margin-bottom:2px;">
-        <span style="color:#6B6180">Mesas</span><strong>${props.mesas}</strong>
+// MapLibre serializa a JSON string cualquier propiedad de la fuente que sea objeto/array
+// cuando la devuelve en `queryRenderedFeatures`/eventos de capa (a diferencia del GeoJSON
+// original, que sí los trae como objeto) — `detalle` y `candidato_ganador` necesitan
+// des-serializarse acá antes de usarlos, si no `.map`/`.foto` truena en runtime.
+function parsePosiblementeSerializado<T>(valor: T | string): T {
+  return typeof valor === "string" ? (JSON.parse(valor) as T) : valor;
+}
+
+function popupHtmlEstablecimiento(rawProps: EstablecimientoProperties): string {
+  const props: EstablecimientoProperties = {
+    ...rawProps,
+    detalle: parsePosiblementeSerializado(rawProps.detalle) ?? [],
+    candidato_ganador: rawProps.candidato_ganador ? parsePosiblementeSerializado(rawProps.candidato_ganador) : null,
+  };
+  // Sin voto cargado (solo geografía) — versión chica, mismo criterio que antes de sumar
+  // resultados_mesa. Nunca mostrar "Ganador —" ni un detalle vacío, mejor omitir la sección.
+  if (!props.ganador) {
+    return `
+      <div style="font-family:Montserrat,sans-serif;min-width:170px">
+        <div style="font-weight:700;margin-bottom:4px;">${titleCase(props.nombre)}</div>
+        <div style="font-size:11.5px;color:#6B6180;margin-bottom:6px;">${titleCase(props.direccion)}</div>
+        <div style="display:flex;justify-content:space-between;gap:12px;font-size:12.5px;margin-bottom:2px;">
+          <span style="color:#6B6180">Mesas</span><strong>${props.mesas}</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;gap:12px;font-size:12.5px;">
+          <span style="color:#6B6180">Electores</span><strong>${props.electores.toLocaleString("es-AR")}</strong>
+        </div>
       </div>
-      <div style="display:flex;justify-content:space-between;gap:12px;font-size:12.5px;">
-        <span style="color:#6B6180">Electores</span><strong>${props.electores.toLocaleString("es-AR")}</strong>
+    `;
+  }
+
+  const foto = props.candidato_ganador?.foto ?? null;
+  const ganadorNombre = props.candidato_ganador?.nombre ?? titleCase(props.ganador);
+  const top3 = props.detalle.slice(0, 3);
+
+  return `
+    <div style="font-family:Montserrat,sans-serif;min-width:190px">
+      <div style="font-weight:700;margin-bottom:2px;">${titleCase(props.nombre)}</div>
+      <div style="font-size:11px;color:#6B6180;margin-bottom:8px;">${titleCase(props.direccion)}</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        ${foto ? `<img src="${resolveFotoUrl(foto)}" style="width:26px;height:26px;border-radius:9999px;object-fit:cover;border:2px solid ${partyColor(props.ganador)}" />` : `<span style="width:10px;height:10px;border-radius:9999px;background:${partyColor(props.ganador)};flex-shrink:0;"></span>`}
+        <div>
+          <div style="font-weight:700;font-size:12.5px;">${ganadorNombre}</div>
+          ${props.candidato_ganador ? `<div style="font-size:10.5px;color:#6B6180">${titleCase(props.ganador)}</div>` : ""}
+        </div>
+      </div>
+      ${top3
+        .map(
+          (d) => `
+        <div style="display:flex;justify-content:space-between;gap:12px;font-size:12px;margin-bottom:2px;">
+          <span style="color:#6B6180;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:120px;">${titleCase(d.fuerza)}</span>
+          <strong>${d.pct != null ? `${d.pct.toFixed(1)}%` : "—"}</strong>
+        </div>
+      `
+        )
+        .join("")}
+      <div style="display:flex;justify-content:space-between;gap:12px;font-size:11.5px;margin-top:6px;padding-top:6px;border-top:1px solid #eee;">
+        <span style="color:#6B6180">Participación</span><strong>${props.participacion_pct != null ? `${props.participacion_pct.toFixed(1)}%` : "—"}</strong>
+      </div>
+      <div style="display:flex;justify-content:space-between;gap:12px;font-size:11.5px;">
+        <span style="color:#6B6180">Mesas / Electores</span><strong>${props.mesas} / ${props.electores.toLocaleString("es-AR")}</strong>
       </div>
     </div>
   `;
+}
+
+const ESTABLECIMIENTO_COLOR_DEFAULT = "#30115e"; // sin voto cargado (solo geografía) — violeta institucional
+
+function withComputedColor(fc: EstablecimientosGeoJSON): GeoJSON.FeatureCollection {
+  return {
+    ...fc,
+    features: fc.features.map((f) => ({
+      ...f,
+      properties: {
+        ...f.properties,
+        computed_color: f.properties.ganador ? partyColor(f.properties.ganador) : ESTABLECIMIENTO_COLOR_DEFAULT,
+      },
+    })),
+  } as GeoJSON.FeatureCollection;
 }
 
 const SOURCE_ID = "circuitos";
@@ -214,9 +280,12 @@ interface Props {
   // elecciones todavía no tienen esto cargado (ver docs/DATA_SOURCES.md, "Nivel mesa
   // (escuela)"). Cuando no hay datos, no se agrega ningún punto — no es un estado de error.
   establecimientos?: EstablecimientosGeoJSON | null;
+  // Toggle "Colegios" en MapPage — visibilidad de la capa, no un refetch/vaciado de datos (la
+  // fuente sigue con los puntos cargados, solo se oculta la capa vía `visibility`).
+  mostrarEscuelas?: boolean;
 }
 
-export function MapView({ data, onHover, nombreBase, idsFiltrados = null, versus = null, establecimientos = null }: Props) {
+export function MapView({ data, onHover, nombreBase, idsFiltrados = null, versus = null, establecimientos = null, mostrarEscuelas = true }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const popupRef = useRef<maplibregl.Popup | null>(null);
@@ -230,6 +299,7 @@ export function MapView({ data, onHover, nombreBase, idsFiltrados = null, versus
   const metricRef = useRef(currentMetric(metricKey));
   const versusRef = useRef(versus);
   const establecimientosRef = useRef(establecimientos);
+  const mostrarEscuelasRef = useRef(mostrarEscuelas);
   useEffect(() => {
     metricRef.current = currentMetric(metricKey);
   }, [metricKey]);
@@ -239,6 +309,9 @@ export function MapView({ data, onHover, nombreBase, idsFiltrados = null, versus
   useEffect(() => {
     establecimientosRef.current = establecimientos;
   }, [establecimientos]);
+  useEffect(() => {
+    mostrarEscuelasRef.current = mostrarEscuelas;
+  }, [mostrarEscuelas]);
 
   // Init del mapa (una sola vez)
   useEffect(() => {
@@ -300,17 +373,18 @@ export function MapView({ data, onHover, nombreBase, idsFiltrados = null, versus
       });
 
       // Puntos de escuela — capa agregada DESPUÉS de circuitos/highlight, así queda arriba.
-      map.addSource(ESTABLECIMIENTOS_SOURCE_ID, { type: "geojson", data: (establecimientosRef.current ?? EMPTY_ESTABLECIMIENTOS) as GeoJSON.FeatureCollection });
+      map.addSource(ESTABLECIMIENTOS_SOURCE_ID, { type: "geojson", data: withComputedColor(establecimientosRef.current ?? EMPTY_ESTABLECIMIENTOS) });
       map.addLayer({
         id: ESTABLECIMIENTOS_LAYER_ID,
         type: "circle",
         source: ESTABLECIMIENTOS_SOURCE_ID,
         paint: {
           "circle-radius": 4,
-          "circle-color": "#30115e",
+          "circle-color": ["get", "computed_color"],
           "circle-stroke-width": 1.5,
           "circle-stroke-color": "#ffffff",
         },
+        layout: { visibility: mostrarEscuelasRef.current ? "visible" : "none" },
       });
       map.on("mousemove", ESTABLECIMIENTOS_LAYER_ID, (e) => {
         const f = e.features?.[0];
@@ -390,8 +464,15 @@ export function MapView({ data, onHover, nombreBase, idsFiltrados = null, versus
     if (!map) return;
     const source = map.getSource(ESTABLECIMIENTOS_SOURCE_ID) as GeoJSONSource | undefined;
     if (!source) return;
-    source.setData((establecimientos ?? EMPTY_ESTABLECIMIENTOS) as GeoJSON.FeatureCollection);
+    source.setData(withComputedColor(establecimientos ?? EMPTY_ESTABLECIMIENTOS));
   }, [establecimientos]);
+
+  // Toggle "Colegios" — oculta/muestra la capa sin tocar los datos de la fuente.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !map.getLayer(ESTABLECIMIENTOS_LAYER_ID)) return;
+    map.setLayoutProperty(ESTABLECIMIENTOS_LAYER_ID, "visibility", mostrarEscuelas ? "visible" : "none");
+  }, [mostrarEscuelas]);
 
   // Actualizar el resaltado (filtro + color) cuando cambia el circuito activo, la métrica o el versus
   useEffect(() => {

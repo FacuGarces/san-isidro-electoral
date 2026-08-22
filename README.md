@@ -52,6 +52,9 @@ PYTHONPATH=. python3 importers/sources/dine/import_locales_votacion.py \
   --csv-url "https://datos.mininterior.gob.ar/dataset/947e871a-650e-4b63-8939-ecb29acb717c/resource/a24110fb-bfcf-47a6-8aa7-2e53dab9caf5/download/elecciones_legislativas_2025.zip" \
   --resultados-csv-name resultados2025.csv --eleccion-id DIPUTADOS2025
 PYTHONPATH=. python3 etl/load_locales_votacion.py --eleccion-id DIPUTADOS2025
+PYTHONPATH=. python3 etl/load_resultados_mesa.py \
+  --resultados-csv-name resultados2025.csv --eleccion-id DIPUTADOS2025 \
+  --cargo-nombre "DIPUTADO NACIONAL"
 ```
 
 ## Deploy (GitHub Pages + Render)

@@ -16,7 +16,7 @@ le falta. Lo que un asesor pediría, cruzado contra lo que hay hoy:
 | Clasificación bastión/competitivo/hostil | ✅ |
 | Ranking de circuitos ponderado por padrón (impacto, no solo %) | ✅ |
 | Legislativas 2025, elecciones pre-2023 | ✅ — Diputados Nacionales 2025 cargado (`DIPUTADOS2025`) |
-| Nivel mesa (para operativos de campo) | 🟡 — geografía 100% resuelta para 2025 en adelante (778 mesas → 125/125 escuelas geocodificadas, capa de puntos en el mapa); 2023 sigue sin esta fuente; falta cargar voto por mesa (`core.resultados_mesa`), hoy solo hay ubicación/electores por escuela |
+| Nivel mesa (para operativos de campo) | ✅ para 2025 en adelante — geografía (125/125 escuelas geocodificadas) + voto por mesa (`core.resultados_mesa`) cargados, ganador/% por escuela en el mapa; 2023 sigue sin esta fuente |
 | Demográficos/censales (INDEC, pirámide etaria, NSE por radio censal) | ⬜ — arquitectura prevista (ver "Segunda etapa"), no implementado |
 | Concejales | 🟡 — DINE sigue sin publicarlo para Buenos Aires, pero se cargó **Concejales 2025** por circuito como dato PARCIAL (transcripto de capturas de una app oficial, ver docs/DATA_SOURCES.md sección "Senadores/Concejales 2025") |
 
@@ -80,7 +80,7 @@ en la sesión del 2026-08-10 junto con el rediseño completo del flujo de compar
 | Ítem | Estado |
 |---|---|
 | Mapa interactivo con calles reales | ✅ — MapLibre + OpenStreetMap |
-| Click en establecimiento con resultado completo | 🟡 — hover con nombre/dirección/mesas/electores por escuela (2025 en adelante), pero sin resultado de voto (falta cargar `core.resultados_mesa`) |
+| Click en establecimiento con resultado completo | ✅ — hover con ganador, candidato, top 3 fuerzas y participación por escuela (2025 en adelante) |
 | Evolución histórica / comparación al clickear | ⬜ — necesita más elecciones |
 | Activar/desactivar capas | 🟡 — hay selector de una capa a la vez, no múltiples simultáneas |
 
@@ -94,7 +94,7 @@ en la sesión del 2026-08-10 junto con el rediseño completo del flujo de compar
 | Voto Unión por la Patria | ✅ |
 | Voto "Acción Vecinal" | ⬜ — no compitió en PASO 2023 San Isidro con ese nombre; revisar si aplica en otra elección |
 | Voto otras fuerzas | 🟡 — están en el detalle por circuito, no como capa de mapa propia |
-| Ganador por mesa | 🟡 — hecho a nivel circuito, no mesa |
+| Ganador por mesa | ✅ para 2025 en adelante (por escuela, agregando sus mesas) — 2023 sigue a nivel circuito |
 | Margen de victoria | ✅ — como orden del ranking; falta como capa de color propia en el mapa |
 | Crecimiento histórico | ⬜ — necesita 2+ elecciones |
 | Caída histórica | ⬜ — ídem |
@@ -215,11 +215,10 @@ backend, solo subir los datos, siempre que la fuente los publique a nivel circui
 2. ~~**Exportaciones**~~ — ✅ CSV y GeoJSON, 2026-08-10. Ver `frontend/src/lib/export.ts`.
 3. ~~**Filtros del dashboard**~~ — ✅ buscador de circuito + rango de participación, 2026-08-10.
    Ver `CircuitFilterBar.tsx` / `lib/filtros.ts`.
-4. ~~**Nivel mesa/escuela — mapeo mesa→escuela**~~ — ✅ resuelto 2026-08-22 para 2025 en
-   adelante (125/125 escuelas geocodificadas, capa de puntos en el mapa). Lo que queda es cargar
-   el **voto por mesa** (`core.resultados_mesa`, el dato ya está en el mismo CSV de resultados)
-   para poder mostrar ganador/% por escuela, no solo ubicación. Ver docs/DATA_SOURCES.md,
-   sección "Nivel mesa (escuela)".
+4. ~~**Nivel mesa/escuela**~~ — ✅ resuelto por completo 2026-08-22 para 2025 en adelante:
+   mapeo mesa→escuela (125/125 geocodificadas) + voto por mesa (`core.resultados_mesa`) +
+   toggle "Colegios" en el mapa. Ganador/candidato/top 3 fuerzas/participación por escuela, capa
+   coloreada por partido. Ver docs/DATA_SOURCES.md, sección "Nivel mesa (escuela)", y CLAUDE.md.
 5. ~~**Provincial PBA 2025 (Senadores + Concejales)**~~ — 🟡 cargados por circuito como PARCIAL
    (`SENADORES2025PBA_PARCIAL` 2026-08-10, `CONCEJALES2025PBA_PARCIAL` 2026-08-11): el sistema de
    la Junta Electoral PBA nunca tabuló estas 2 categorías por circuito (confirmado con 3 fuentes
