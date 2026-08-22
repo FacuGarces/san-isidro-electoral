@@ -45,6 +45,15 @@ PYTHONPATH=. python3 importers/sources/dine/import_paso_2023_san_isidro.py   # b
 PYTHONPATH=. python3 etl/load_paso_2023_san_isidro.py                        # carga a DuckDB
 ```
 
+Nivel mesa/escuela (solo elecciones 2025 en adelante, ver CLAUDE.md y docs/DATA_SOURCES.md):
+
+```bash
+PYTHONPATH=. python3 importers/sources/dine/import_locales_votacion.py \
+  --csv-url "https://datos.mininterior.gob.ar/dataset/947e871a-650e-4b63-8939-ecb29acb717c/resource/a24110fb-bfcf-47a6-8aa7-2e53dab9caf5/download/elecciones_legislativas_2025.zip" \
+  --resultados-csv-name resultados2025.csv --eleccion-id DIPUTADOS2025
+PYTHONPATH=. python3 etl/load_locales_votacion.py --eleccion-id DIPUTADOS2025
+```
+
 ## Deploy (GitHub Pages + Render)
 
 El frontend y el backend viven en hosts separados — Pages es 100% estático, no puede correr

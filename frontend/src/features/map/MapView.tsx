@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import maplibregl from "maplibre-gl";
 import type { Map as MapLibreMap, GeoJSONSource } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import type { CircuitosGeoJSON, CircuitoProperties } from "../../lib/api";
+import type { CircuitosGeoJSON, CircuitoProperties, EstablecimientosGeoJSON, EstablecimientoProperties } from "../../lib/api";
 import { borderColorFor, clasificacionColor, clasificacionLabel, clasificarCircuito, duoColor, fillColorFor, metricValue, partyColor, titleCase } from "../../lib/colors";
 import { resolveFotoUrl } from "../../lib/format";
 import { currentMetric, useMapStore, type Metric } from "../../store/mapStore";
@@ -16,6 +16,25 @@ export interface VersusConfig {
   colorB: string;
   labelA: string;
   labelB: string;
+}
+
+const EMPTY_ESTABLECIMIENTOS: EstablecimientosGeoJSON = { type: "FeatureCollection", features: [] };
+const ESTABLECIMIENTOS_SOURCE_ID = "establecimientos";
+const ESTABLECIMIENTOS_LAYER_ID = "establecimientos-puntos";
+
+function popupHtmlEstablecimiento(props: EstablecimientoProperties): string {
+  return `
+    <div style="font-family:Montserrat,sans-serif;min-width:170px">
+      <div style="font-weight:700;margin-bottom:4px;">${titleCase(props.nombre)}</div>
+      <div style="font-size:11.5px;color:#6B6180;margin-bottom:6px;">${titleCase(props.direccion)}</div>
+      <div style="display:flex;justify-content:space-between;gap:12px;font-size:12.5px;margin-bottom:2px;">
+        <span style="color:#6B6180">Mesas</span><strong>${props.mesas}</strong>
+      </div>
+      <div style="display:flex;justify-content:space-between;gap:12px;font-size:12.5px;">
+        <span style="color:#6B6180">Electores</span><strong>${props.electores.toLocaleString("es-AR")}</strong>
+      </div>
+    </div>
+  `;
 }
 
 const SOURCE_ID = "circuitos";
@@ -191,9 +210,13 @@ interface Props {
   // `metricValue(A) - metricValue(B)` con `duoColor` en vez de la métrica única del store —
   // reemplaza tanto el relleno como el popup, el resto (zoom, bounds, hover) es igual.
   versus?: VersusConfig | null;
+  // Puntos de escuela/local de votación (nivel mesa) — opcional porque la mayoría de las
+  // elecciones todavía no tienen esto cargado (ver docs/DATA_SOURCES.md, "Nivel mesa
+  // (escuela)"). Cuando no hay datos, no se agrega ningún punto — no es un estado de error.
+  establecimientos?: EstablecimientosGeoJSON | null;
 }
 
-export function MapView({ data, onHover, nombreBase, idsFiltrados = null, versus = null }: Props) {
+export function MapView({ data, onHover, nombreBase, idsFiltrados = null, versus = null, establecimientos = null }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const popupRef = useRef<maplibregl.Popup | null>(null);
@@ -206,12 +229,16 @@ export function MapView({ data, onHover, nombreBase, idsFiltrados = null, versus
   // sin que `data` cambie de identidad. Se leen siempre del ref.
   const metricRef = useRef(currentMetric(metricKey));
   const versusRef = useRef(versus);
+  const establecimientosRef = useRef(establecimientos);
   useEffect(() => {
     metricRef.current = currentMetric(metricKey);
   }, [metricKey]);
   useEffect(() => {
     versusRef.current = versus;
   }, [versus]);
+  useEffect(() => {
+    establecimientosRef.current = establecimientos;
+  }, [establecimientos]);
 
   // Init del mapa (una sola vez)
   useEffect(() => {
@@ -272,6 +299,31 @@ export function MapView({ data, onHover, nombreBase, idsFiltrados = null, versus
         filter: ["==", ["get", "circuito_id"], ""],
       });
 
+      // Puntos de escuela — capa agregada DESPUÉS de circuitos/highlight, así queda arriba.
+      map.addSource(ESTABLECIMIENTOS_SOURCE_ID, { type: "geojson", data: (establecimientosRef.current ?? EMPTY_ESTABLECIMIENTOS) as GeoJSON.FeatureCollection });
+      map.addLayer({
+        id: ESTABLECIMIENTOS_LAYER_ID,
+        type: "circle",
+        source: ESTABLECIMIENTOS_SOURCE_ID,
+        paint: {
+          "circle-radius": 4,
+          "circle-color": "#30115e",
+          "circle-stroke-width": 1.5,
+          "circle-stroke-color": "#ffffff",
+        },
+      });
+      map.on("mousemove", ESTABLECIMIENTOS_LAYER_ID, (e) => {
+        const f = e.features?.[0];
+        if (!f) return;
+        const props = f.properties as unknown as EstablecimientoProperties;
+        popup.setLngLat(e.lngLat).setHTML(popupHtmlEstablecimiento(props)).addTo(map);
+        map.getCanvas().style.cursor = "pointer";
+      });
+      map.on("mouseleave", ESTABLECIMIENTOS_LAYER_ID, () => {
+        popup.remove();
+        map.getCanvas().style.cursor = "";
+      });
+
       const bounds = boundsFor(data);
       map.fitBounds(bounds, { padding: 24, animate: false });
       // No se puede alejar más que el encuadre original de San Isidro (evita mostrar zona
@@ -285,6 +337,12 @@ export function MapView({ data, onHover, nombreBase, idsFiltrados = null, versus
 
       let hoveredId: string | null = null;
       map.on("mousemove", FILL_LAYER_ID, (e) => {
+        // El punto de escuela se dibuja ARRIBA del relleno del circuito (misma zona), así que
+        // este mousemove del polígono también dispara cuando el mouse está sobre un punto —
+        // sin este chequeo, el popup de circuito siempre pisa al de escuela (los 2 listeners
+        // están registrados sobre el mismo evento, no hay forma de "detener" uno desde el
+        // otro salvo consultar explícitamente qué hay arriba antes de decidir).
+        if (map.queryRenderedFeatures(e.point, { layers: [ESTABLECIMIENTOS_LAYER_ID] }).length > 0) return;
         const f = e.features?.[0];
         const id = f?.properties?.circuito_id as string | undefined;
         if (!id) return;
@@ -323,6 +381,17 @@ export function MapView({ data, onHover, nombreBase, idsFiltrados = null, versus
     if (!source) return;
     source.setData(computeFills(data, metricKey, compareMode, idsFiltrados, versus) as GeoJSON.FeatureCollection);
   }, [data, metricKey, compareMode, idsFiltrados, versus]);
+
+  // Los establecimientos llegan de un fetch aparte (useQuery propio en MapPage), típicamente
+  // después de que el mapa ya inicializó — actualizar la fuente cuando cambian, no solo al
+  // crearla en `map.on("load")`.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const source = map.getSource(ESTABLECIMIENTOS_SOURCE_ID) as GeoJSONSource | undefined;
+    if (!source) return;
+    source.setData((establecimientos ?? EMPTY_ESTABLECIMIENTOS) as GeoJSON.FeatureCollection);
+  }, [establecimientos]);
 
   // Actualizar el resaltado (filtro + color) cuando cambia el circuito activo, la métrica o el versus
   useEffect(() => {

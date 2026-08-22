@@ -146,6 +146,27 @@ dato de mesa" — es "hay voto por mesa pero no sabemos en qué escuela vota cad
 retoma esto, arrancar buscando esa tabla de equivalencia en vez de re-investigar el nivel de
 voto, que ya está resuelto.
 
+**Resuelto 2026-08-22 — mapeo mesa→escuela cargado, para 2025 en adelante:** el ZIP de
+`elecciones_legislativas_2025.zip` (mismo dataset que carga Diputados Nacionales 2025, ver
+sección de abajo) trae un archivo separado, `localesDeVotacionyMesas.csv`, que 2023 nunca tuvo:
+nombre de escuela, dirección y localidad por `mesa_id` (778 mesas de San Isidro, 125 escuelas
+únicas). Cruza limpio contra el CSV de resultados por `mesa_id` (**ojo:** `mesa_id` NO es único
+en toda la provincia, se reinicia por circuito en otros municipios — hay que restringir a los
+circuitos de San Isidro ANTES de armar el cruce, no después, o se pisa el mapeo con mesas de
+otro lado). El archivo no trae lat/lon, así que se geocodificó cada escuela contra Nominatim
+(1 req/seg): 104/125 con una sola pasada + reintento (el símbolo "N°" de la fuente rompe el
+parser de Nominatim — sacarlo resuelve la mayoría; el resto son direcciones "entre calles" sin
+altura o con abreviaturas que Nominatim no resuelve, se dejaron sin geocodificar en vez de
+adivinar). Implementado en
+`backend/importers/sources/dine/import_locales_votacion.py` (bronze, con cache de geocoding
+entre corridas) + `backend/etl/load_locales_votacion.py` (puebla `core.establecimientos` +
+`core.mesas`, tablas que ya estaban en el schema esperando esto). Expuesto en
+`GET /api/v1/mapa/establecimientos?eleccion_id=...` y como capa de puntos en el mapa
+(`MapView.tsx`) — **solo geografía + mesas/electores por ahora, no voto por escuela** (eso
+necesitaría cargar `core.resultados_mesa`, que sigue vacía; el dato ya está en el mismo CSV de
+resultados si se retoma esto). Solo cubre elecciones 2025 en adelante — 2023 sigue sin esta
+fuente, ver más arriba.
+
 ## Concejales — no publicado por DINE para Buenos Aires (confirmado)
 
 DINE expone un endpoint `/api/menu?año={anio}` que arma los propios filtros del sitio

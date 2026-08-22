@@ -316,6 +316,49 @@ también — antes eran `number` a secas.
   de eso todavía (si se agrega una segunda fuente parcial, capaz vale la pena un badge propio en
   vez de depender solo del texto del título).
 
+## Nivel mesa/escuela — mapeo cargado para 2025 en adelante (2026-08-22)
+
+Resuelve el bloqueo histórico documentado en docs/DATA_SOURCES.md ("Nivel mesa (escuela)"): 2023
+nunca tuvo fuente pública para mesa→escuela, pero el ZIP de `elecciones_legislativas_2025.zip`
+(mismo que carga `DIPUTADOS2025`) trae un archivo separado, `localesDeVotacionyMesas.csv`, con
+nombre/dirección/localidad por mesa que 2023 no tenía.
+
+- **Pipeline nuevo:** `backend/importers/sources/dine/import_locales_votacion.py` (bronze — baja
+  el CSV de locales, cruza `mesa_id` contra el CSV de resultados ya cacheado por
+  `import_from_bulk_csv.py` para heredar `circuito_id`, geocodifica cada escuela ÚNICA contra
+  Nominatim con cache entre corridas) → `backend/etl/load_locales_votacion.py` (puebla
+  `core.establecimientos` + `core.mesas`, tablas que ya estaban en el schema desde el diseño
+  original, sin usar hasta ahora). Uso completo documentado en el docstring de cada script.
+- **Gotcha real, ya pisado una vez:** `mesa_id` NO es único en toda la provincia de Buenos
+  Aires — se reinicia por circuito en otros municipios. Cruzar sin restringir antes a los
+  circuitos de San Isidro pisa el mapeo con mesas de otro lado (pasó: `_mesa_to_circuito()`
+  intentó guardar mesa_id→circuito_id para TODA la provincia "para filtrar después" y terminó
+  asignando circuitos de otro municipio a mesas de San Isidro que reusaban el mismo mesa_id).
+  Fix: restringir al `id_dine` de los circuitos de San Isidro (`load_circuitos_municipio`)
+  ANTES de armar el diccionario, no después.
+- **Geocoding: 104/125 escuelas únicas, no las 778 mesas** (muchas mesas comparten local). El
+  símbolo "N°" de la fuente rompe el parser de Nominatim — sacarlo resuelve la mayoría; un
+  fallback a nivel calle (sin altura, sin "E/ ... Y ...") rescata algunas más. Las 21 restantes
+  (direcciones "entre calles" o con abreviaturas raras) quedan sin lat/lon a propósito — mejor
+  sin geocodificar que con una coordenada inventada.
+- **Endpoint nuevo:** `GET /api/v1/mapa/establecimientos?eleccion_id=...`
+  (`app/repositories/mapa.py::get_establecimientos_geojson`) — a diferencia de `/circuitos`, una
+  FeatureCollection vacía es una respuesta VÁLIDA (la mayoría de las elecciones no tienen esto
+  cargado), no un 404.
+- **Frontend:** `MapView.tsx` agrega una capa de puntos (`circle`) sobre el mapa de circuitos,
+  con popup propio en hover (nombre/dirección/mesas/electores). Gotcha de UI ya resuelto: el
+  punto se dibuja arriba del relleno del circuito en la misma zona, así que el mousemove del
+  polígono TAMBIÉN dispara al pasar sobre un punto — sin chequear primero
+  `queryRenderedFeatures(e.point, {layers: [ESTABLECIMIENTOS_LAYER_ID]})` en el handler del
+  polígono, el popup de circuito siempre pisa al de escuela (no hay forma de "detener" un
+  listener de capa desde otro en MapLibre, hay que consultar explícito qué hay arriba antes de
+  decidir cuál popup mostrar).
+- **Lo que falta (no es un blocker de fuente, es trabajo pendiente):** todavía no se carga
+  `core.resultados_mesa` (voto por mesa) — el dato ya está en el mismo CSV de resultados que se
+  usa para `DIPUTADOS2025`, solo falta un loader que lo aproveche a nivel mesa en vez de
+  agregarlo a circuito. Sin eso, la capa de escuela muestra ubicación/mesas/electores pero no
+  ganador/% por escuela.
+
 ## Cómo cargar una elección/categoría nueva
 
 Desde que hay más de una categoría (Presidente + Intendente), el patrón pasó a ser genérico en

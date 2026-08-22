@@ -4,6 +4,45 @@ from app.core.candidatos import candidato_fuerza, candidato_lista
 from app.core.db import read_connection
 
 
+def get_establecimientos_geojson(eleccion_id: str) -> dict:
+    """FeatureCollection de puntos (uno por escuela/local de votación) para una elección con
+    nivel mesa cargado (ver core.mesas/core.establecimientos, docs/DATA_SOURCES.md sección
+    'Nivel mesa (escuela)'). Solo geografía + agregados de mesas por ahora — el voto por mesa
+    (core.resultados_mesa) todavía no se carga para ninguna elección, así que no hay ganador/%
+    por escuela acá, solo ubicación y cuántas mesas/electores tiene cada local."""
+    with read_connection() as con:
+        rows = con.execute(
+            """
+            SELECT e.id, e.nombre, e.direccion, e.lat, e.lon, e.validado,
+                   count(m.id) AS mesas, sum(m.electores_habilitados) AS electores,
+                   any_value(m.circuito_id) AS circuito_id
+            FROM core.mesas m
+            JOIN core.establecimientos e ON e.id = m.establecimiento_id
+            WHERE m.eleccion_id = ? AND e.lat IS NOT NULL AND e.lon IS NOT NULL
+            GROUP BY e.id, e.nombre, e.direccion, e.lat, e.lon, e.validado
+            """,
+            [eleccion_id],
+        ).fetchall()
+
+    features = [
+        {
+            "type": "Feature",
+            "geometry": {"type": "Point", "coordinates": [lon, lat]},
+            "properties": {
+                "establecimiento_id": est_id,
+                "nombre": nombre,
+                "direccion": direccion,
+                "validado": validado,
+                "mesas": mesas,
+                "electores": electores,
+                "circuito_id": circuito_id,
+            },
+        }
+        for est_id, nombre, direccion, lat, lon, validado, mesas, electores, circuito_id in rows
+    ]
+    return {"type": "FeatureCollection", "features": features}
+
+
 def get_circuitos_geojson(eleccion_id: str) -> dict:
     """FeatureCollection de circuitos con resultados embebidos, para el mapa. Todo sale
     de core.* — nada de archivos estáticos precalculados (a diferencia del preview inicial

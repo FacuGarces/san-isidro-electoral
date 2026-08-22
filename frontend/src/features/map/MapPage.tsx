@@ -40,6 +40,16 @@ export function MapPage() {
     enabled: !!eleccionActual,
   });
 
+  // Nivel mesa/escuela — hoy solo DIPUTADOS2025 devuelve puntos (ver docs/DATA_SOURCES.md), el
+  // resto de las elecciones traen una FeatureCollection vacía y el mapa simplemente no muestra
+  // marcadores. No bloquea el render del mapa (no hay isLoading/error propio, `data` de arriba
+  // sigue siendo la fuente de verdad para el estado de carga de la página).
+  const { data: establecimientos } = useQuery({
+    queryKey: ["establecimientos", eleccionActual?.id],
+    queryFn: () => api.establecimientos(eleccionActual!.id),
+    enabled: !!eleccionActual,
+  });
+
   // El filtro del panel Circuitos reduce qué circuitos aparecen en el ranking/agregado — el
   // mapa sigue mostrando los 10 (nunca deja agujeros), solo atenúa los que no matchean (ver
   // `idsFiltrados` más abajo). Memoizado por [data, filtro]: activeCircuito cambia en cada
@@ -136,7 +146,7 @@ export function MapPage() {
                 </div>
               )}
               <MetricSelect data={data} />
-              <MapView data={data} onHover={setActiveCircuito} nombreBase="" idsFiltrados={idsFiltrados} />
+              <MapView data={data} onHover={setActiveCircuito} nombreBase="" idsFiltrados={idsFiltrados} establecimientos={establecimientos} />
 
               {metric.kind === "winner" ? <WinnerLegend data={data} /> : <GradientLegend metricKey={metricKey} dark={dark} />}
             </div>

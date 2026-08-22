@@ -15,8 +15,8 @@ le falta. Lo que un asesor pediría, cruzado contra lo que hay hoy:
 | **Voto cruzado Presidente vs. Intendente** (cuánto del voto a la marca nacional no se traslada al candidato local) | ✅ — era el gap más grande, se cerró completo (ver "Voto cruzado" en Comparaciones) |
 | Clasificación bastión/competitivo/hostil | ✅ |
 | Ranking de circuitos ponderado por padrón (impacto, no solo %) | ✅ |
-| Legislativas 2025, elecciones pre-2023 | 🟡 — Diputados Nacionales 2025 investigado y cargable (mismo patrón que Ballotage), falta ejecutar el importer |
-| Nivel mesa (para operativos de campo) | ⬜ — bloqueado, sin fuente pública para PBA (2023); para 2025 ya hay dato de mesa, falta cruzarlo con circuito |
+| Legislativas 2025, elecciones pre-2023 | ✅ — Diputados Nacionales 2025 cargado (`DIPUTADOS2025`) |
+| Nivel mesa (para operativos de campo) | 🟡 — geografía resuelta para 2025 en adelante (778 mesas → 125 escuelas geocodificadas, capa de puntos en el mapa); 2023 sigue sin esta fuente; falta cargar voto por mesa (`core.resultados_mesa`), hoy solo hay ubicación/electores por escuela |
 | Demográficos/censales (INDEC, pirámide etaria, NSE por radio censal) | ⬜ — arquitectura prevista (ver "Segunda etapa"), no implementado |
 | Concejales | 🟡 — DINE sigue sin publicarlo para Buenos Aires, pero se cargó **Concejales 2025** por circuito como dato PARCIAL (transcripto de capturas de una app oficial, ver docs/DATA_SOURCES.md sección "Senadores/Concejales 2025") |
 
@@ -55,7 +55,7 @@ en la sesión del 2026-08-10 junto con el rediseño completo del flujo de compar
 | Generales 2023 (22/10) | ✅ cargada (circuito) — `eleccion_comparable_id` apunta a PASO2023 |
 | Ballotage 2023 (19/11) | ✅ cargada (circuito) — la API en vivo no sirve este nivel, se cargó desde el CSV masivo de datos.gob.ar (ver docs/DATA_SOURCES.md) |
 | Provincial PBA (7/9/2025) | 🟡 — Senadores Provinciales y Concejales cargados por circuito como PARCIAL (`SENADORES2025PBA_PARCIAL`, `CONCEJALES2025PBA_PARCIAL`); el techo real de la fuente oficial es municipio/sección, no circuito (ver docs/DATA_SOURCES.md) |
-| Nacional (26/10/2025 — corregido de 25/10) | ⬜ — Diputados Nacionales investigado y cargable (mismo patrón que Ballotage), falta ejecutar el importer |
+| Nacional (26/10/2025 — corregido de 25/10) | ✅ cargada (circuito) — `DIPUTADOS2025` |
 
 ## Base de datos
 
@@ -71,7 +71,7 @@ en la sesión del 2026-08-10 junto con el rediseño completo del flujo de compar
 | Ítem | Estado |
 |---|---|
 | Coordenadas de circuitos (polígonos oficiales) | ✅ |
-| Coordenadas de escuelas individuales | ⬜ |
+| Coordenadas de escuelas individuales | 🟡 — 104/125 geocodificadas (2025 en adelante, ver docs/DATA_SOURCES.md); 21 sin resolver (direcciones sin altura o con abreviaturas que Nominatim no interpreta) |
 | Validación de coordenadas / dedupe | ⬜ (no aplica todavía, sin datos de escuela) |
 | Capas geográficas reutilizables | ✅ — geometría vive en `core.circuitos.geom` (DuckDB spatial) |
 
@@ -80,7 +80,7 @@ en la sesión del 2026-08-10 junto con el rediseño completo del flujo de compar
 | Ítem | Estado |
 |---|---|
 | Mapa interactivo con calles reales | ✅ — MapLibre + OpenStreetMap |
-| Click en establecimiento con resultado completo | ⬜ — hoy el click es a nivel circuito, no escuela |
+| Click en establecimiento con resultado completo | 🟡 — hover con nombre/dirección/mesas/electores por escuela (2025 en adelante), pero sin resultado de voto (falta cargar `core.resultados_mesa`) |
 | Evolución histórica / comparación al clickear | ⬜ — necesita más elecciones |
 | Activar/desactivar capas | 🟡 — hay selector de una capa a la vez, no múltiples simultáneas |
 
@@ -215,15 +215,19 @@ backend, solo subir los datos, siempre que la fuente los publique a nivel circui
 2. ~~**Exportaciones**~~ — ✅ CSV y GeoJSON, 2026-08-10. Ver `frontend/src/lib/export.ts`.
 3. ~~**Filtros del dashboard**~~ — ✅ buscador de circuito + rango de participación, 2026-08-10.
    Ver `CircuitFilterBar.tsx` / `lib/filtros.ts`.
-4. **Nivel mesa/escuela** — el bloqueo real cambió: ya hay dato de voto por mesa (mismo CSV
-   masivo que resolvió Ballotage), lo que falta es el mapeo mesa→escuela/domicilio. Ver
-   docs/DATA_SOURCES.md, sección "Nivel mesa (escuela)", actualización 2026-08-10.
+4. ~~**Nivel mesa/escuela — mapeo mesa→escuela**~~ — ✅ resuelto 2026-08-22 para 2025 en
+   adelante (104/125 escuelas geocodificadas, capa de puntos en el mapa). Lo que queda es cargar
+   el **voto por mesa** (`core.resultados_mesa`, el dato ya está en el mismo CSV de resultados)
+   para poder mostrar ganador/% por escuela, no solo ubicación. Ver docs/DATA_SOURCES.md,
+   sección "Nivel mesa (escuela)".
 5. ~~**Provincial PBA 2025 (Senadores + Concejales)**~~ — 🟡 cargados por circuito como PARCIAL
    (`SENADORES2025PBA_PARCIAL` 2026-08-10, `CONCEJALES2025PBA_PARCIAL` 2026-08-11): el sistema de
    la Junta Electoral PBA nunca tabuló estas 2 categorías por circuito (confirmado con 3 fuentes
    independientes), solo por municipio/sección — el dato por circuito viene de capturas de una
    app oficial cuyo backend ya no está online, transcriptas a mano, sin electores/mesas/
    participación. Ver docs/DATA_SOURCES.md, sección "Senadores/Concejales 2025".
-6. **Diputados Nacionales 2025** — mismo patrón que Ballotage (CSV masivo de datos.gob.ar), ya
-   investigado y confirmado cargable — solo falta ejecutar el importer.
-7. **Responsive/mobile** y **Deploy** — para cuando el resto esté más maduro.
+6. ~~**Diputados Nacionales 2025**~~ — ✅ cargada 2026-08-11 (`DIPUTADOS2025`, mismo patrón que
+   Ballotage, CSV masivo de datos.gob.ar).
+7. **2023 vs. 2025** — con Diputados 2025 ya cargado, falta sumar esta comparación al dashboard
+   (hoy no hay ningún par 2023↔2025 expuesto, aunque el endpoint genérico ya lo soportaría).
+8. **Responsive/mobile** y **Deploy** — para cuando el resto esté más maduro.

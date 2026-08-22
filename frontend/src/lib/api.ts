@@ -106,10 +106,34 @@ export interface CircuitosGeoJSON {
   resumen?: ComparacionResumen | null; // solo en modo comparación
 }
 
+export interface EstablecimientoProperties {
+  establecimiento_id: string;
+  nombre: string;
+  direccion: string;
+  validado: boolean;
+  mesas: number;
+  electores: number;
+  circuito_id: string;
+}
+
+export interface EstablecimientosGeoJSON {
+  type: "FeatureCollection";
+  features: Array<{
+    type: "Feature";
+    geometry: { type: "Point"; coordinates: [number, number] };
+    properties: EstablecimientoProperties;
+  }>;
+}
+
 export const api = {
   elecciones: () => get<Eleccion[]>("/elecciones"),
   circuitos: (eleccionId: string) =>
     get<CircuitosGeoJSON>(`/mapa/circuitos?eleccion_id=${encodeURIComponent(eleccionId)}`),
   comparacion: (actualId: string, baseId: string) =>
     get<CircuitosGeoJSON>(`/mapa/comparacion?actual=${encodeURIComponent(actualId)}&base=${encodeURIComponent(baseId)}`),
+  // Nivel mesa/escuela — hoy solo cargado para DIPUTADOS2025 (ver docs/DATA_SOURCES.md). La
+  // mayoría de las elecciones devuelven una FeatureCollection vacía, no un 404: es una
+  // respuesta válida ("esta elección no tiene nivel mesa"), no un error.
+  establecimientos: (eleccionId: string) =>
+    get<EstablecimientosGeoJSON>(`/mapa/establecimientos?eleccion_id=${encodeURIComponent(eleccionId)}`),
 };
