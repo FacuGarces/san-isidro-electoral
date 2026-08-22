@@ -16,7 +16,7 @@ le falta. Lo que un asesor pediría, cruzado contra lo que hay hoy:
 | Clasificación bastión/competitivo/hostil | ✅ |
 | Ranking de circuitos ponderado por padrón (impacto, no solo %) | ✅ |
 | Legislativas 2025, elecciones pre-2023 | ✅ — Diputados Nacionales 2025 cargado (`DIPUTADOS2025`) |
-| Nivel mesa (para operativos de campo) | 🟡 — geografía resuelta para 2025 en adelante (778 mesas → 125 escuelas geocodificadas, capa de puntos en el mapa); 2023 sigue sin esta fuente; falta cargar voto por mesa (`core.resultados_mesa`), hoy solo hay ubicación/electores por escuela |
+| Nivel mesa (para operativos de campo) | 🟡 — geografía 100% resuelta para 2025 en adelante (778 mesas → 125/125 escuelas geocodificadas, capa de puntos en el mapa); 2023 sigue sin esta fuente; falta cargar voto por mesa (`core.resultados_mesa`), hoy solo hay ubicación/electores por escuela |
 | Demográficos/censales (INDEC, pirámide etaria, NSE por radio censal) | ⬜ — arquitectura prevista (ver "Segunda etapa"), no implementado |
 | Concejales | 🟡 — DINE sigue sin publicarlo para Buenos Aires, pero se cargó **Concejales 2025** por circuito como dato PARCIAL (transcripto de capturas de una app oficial, ver docs/DATA_SOURCES.md sección "Senadores/Concejales 2025") |
 
@@ -71,8 +71,8 @@ en la sesión del 2026-08-10 junto con el rediseño completo del flujo de compar
 | Ítem | Estado |
 |---|---|
 | Coordenadas de circuitos (polígonos oficiales) | ✅ |
-| Coordenadas de escuelas individuales | 🟡 — 104/125 geocodificadas (2025 en adelante, ver docs/DATA_SOURCES.md); 21 sin resolver (direcciones sin altura o con abreviaturas que Nominatim no interpreta) |
-| Validación de coordenadas / dedupe | ⬜ (no aplica todavía, sin datos de escuela) |
+| Coordenadas de escuelas individuales | ✅ — 125/125 geocodificadas (2025 en adelante, ver docs/DATA_SOURCES.md; 2023 sigue sin esta fuente) |
+| Validación de coordenadas / dedupe | ✅ — `import_locales_votacion.py` invalida (no geocodifica) cualquier grupo de 2+ escuelas que termine con la misma coordenada exacta, señal de un match genérico de Nominatim |
 | Capas geográficas reutilizables | ✅ — geometría vive en `core.circuitos.geom` (DuckDB spatial) |
 
 ## Mapas
@@ -216,7 +216,7 @@ backend, solo subir los datos, siempre que la fuente los publique a nivel circui
 3. ~~**Filtros del dashboard**~~ — ✅ buscador de circuito + rango de participación, 2026-08-10.
    Ver `CircuitFilterBar.tsx` / `lib/filtros.ts`.
 4. ~~**Nivel mesa/escuela — mapeo mesa→escuela**~~ — ✅ resuelto 2026-08-22 para 2025 en
-   adelante (104/125 escuelas geocodificadas, capa de puntos en el mapa). Lo que queda es cargar
+   adelante (125/125 escuelas geocodificadas, capa de puntos en el mapa). Lo que queda es cargar
    el **voto por mesa** (`core.resultados_mesa`, el dato ya está en el mismo CSV de resultados)
    para poder mostrar ganador/% por escuela, no solo ubicación. Ver docs/DATA_SOURCES.md,
    sección "Nivel mesa (escuela)".

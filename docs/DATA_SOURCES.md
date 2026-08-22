@@ -154,10 +154,32 @@ nombre de escuela, dirección y localidad por `mesa_id` (778 mesas de San Isidro
 en toda la provincia, se reinicia por circuito en otros municipios — hay que restringir a los
 circuitos de San Isidro ANTES de armar el cruce, no después, o se pisa el mapeo con mesas de
 otro lado). El archivo no trae lat/lon, así que se geocodificó cada escuela contra Nominatim
-(1 req/seg): 104/125 con una sola pasada + reintento (el símbolo "N°" de la fuente rompe el
-parser de Nominatim — sacarlo resuelve la mayoría; el resto son direcciones "entre calles" sin
-altura o con abreviaturas que Nominatim no resuelve, se dejaron sin geocodificar en vez de
-adivinar). Implementado en
+(1 req/seg): **125/125, las 125 escuelas, sin ninguna sin geocodificar.** Costó 4 iteraciones
+llegar ahí — el detalle completo (útil si se retoca el geocoding a futuro) queda en CLAUDE.md,
+sección "Nivel mesa/escuela"; resumen:
+
+- El símbolo "N°" de la fuente rompe el parser de Nominatim; sacarlo resuelve la mayoría.
+- Un título personal mezclado con el apellido de la calle, en cualquier posición ("SANTANA
+  MTRO. 1551", "GRAL. ALVARADO 1376"), también lo rompe — sacar el título entero (nunca
+  expandirlo a "Maestro"/"General") recupera casi todos esos.
+- **El bug más importante, y el más engañoso porque parecía éxito:** la búsqueda de texto libre
+  de Nominatim (`q=`), para una calle larga que también tiene un POI con nombre (una escuela,
+  un club), ignora la altura pedida y cae al POI más "importante" de esa calle en OSM — varias
+  escuelas EN LA MISMA calle con distintas alturas terminaban todas en el mismo punto exacto,
+  sin ningún error ni advertencia. Se agregó una validación posterior (cualquier grupo de 2+
+  escuelas con coordenada idéntica se invalida entera) que lo detectó, y el fix real fue cambiar
+  el método principal a **búsqueda estructurada** (`street=`/`city=` en vez de `q=`), que sí
+  interpola la altura real en vez de caer al POI.
+- Un `viewbox`+`bounded=1` acotado al bounding box real de San Isidro es necesario aparte:
+  "San Isidro" y varios nombres de calle comunes existen en otras provincias (confirmado con
+  "Alvarado", que sin esto matcheaba en Salta).
+- Un puñado de direcciones no correspondía a ningún nombre real de calle conocido por Nominatim
+  ni siquiera con todo lo anterior — se resolvieron a mano, buscando el nombre de la
+  institución o probando el nombre real de la calle (p.ej. "RUTA PROV RP 195 SAN MARTIN
+  LIBERTADOR GRAL. AV." es como la fuente rotula lo que OSM conoce como "Avenida del
+  Libertador" — ninguna combinación de limpieza genérica llega sola a ese nombre).
+
+Implementado en
 `backend/importers/sources/dine/import_locales_votacion.py` (bronze, con cache de geocoding
 entre corridas) + `backend/etl/load_locales_votacion.py` (puebla `core.establecimientos` +
 `core.mesas`, tablas que ya estaban en el schema esperando esto). Expuesto en

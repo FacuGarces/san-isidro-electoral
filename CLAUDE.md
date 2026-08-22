@@ -336,11 +336,54 @@ nombre/dirección/localidad por mesa que 2023 no tenía.
   asignando circuitos de otro municipio a mesas de San Isidro que reusaban el mismo mesa_id).
   Fix: restringir al `id_dine` de los circuitos de San Isidro (`load_circuitos_municipio`)
   ANTES de armar el diccionario, no después.
-- **Geocoding: 104/125 escuelas únicas, no las 778 mesas** (muchas mesas comparten local). El
-  símbolo "N°" de la fuente rompe el parser de Nominatim — sacarlo resuelve la mayoría; un
-  fallback a nivel calle (sin altura, sin "E/ ... Y ...") rescata algunas más. Las 21 restantes
-  (direcciones "entre calles" o con abreviaturas raras) quedan sin lat/lon a propósito — mejor
-  sin geocodificar que con una coordenada inventada.
+- **Geocoding: 125/125 escuelas únicas, no las 778 mesas** (muchas mesas comparten local) —
+  llegar a las 125 costó 4 iteraciones completas, ver `import_locales_votacion.py` para el
+  código final:
+  1. El símbolo "N°" de la fuente rompe el parser de Nominatim — sacarlo resuelve la mayoría.
+  2. Un título personal mezclado con el apellido de la calle, en cualquier posición ("SANTANA
+     MTRO. 1551", "GRAL. ALVARADO 1376"), también lo rompe — sacar el título entero (nunca
+     expandirlo a "Maestro"/"General", no hace falta) recupera casi todos esos,
+     `_TITULOS_PERSONALES`.
+  3. **El bug más grave, y el que más costó detectar porque no tira ningún error — búsqueda de
+     texto libre (`q=`) ignora la altura y cae al POI con nombre más "importante" de esa calle
+     en OSM.** Confirmado a mano: 3+ escuelas distintas sobre la misma calle, con alturas bien
+     distintas, geocodificaban "OK" pero todas al mismo punto exacto (el de la escuela con
+     mayor `importance` de esa calle en el índice de OSM). Ver el gotcha de "2 escuelas nunca
+     deben compartir coordenada" más abajo — así se detectó. **El fix real fue cambiar a
+     búsqueda ESTRUCTURADA** (`street=`/`city=` en vez de `q=` con todo junto en una frase) como
+     método principal — sí interpola la altura pedida en vez de caer a un POI nombrado,
+     `_query_nominatim_estructurado()`. La búsqueda de texto libre quedó como fallback solo para
+     casos sin altura (cruces de calles).
+  4. `SAN_ISIDRO_VIEWBOX` + `bounded=1` en TODAS las queries — sin esto, nombres de calle
+     comunes matchean en otra provincia (confirmado con "Alvarado" → un resultado real pero en
+     Salta). Bounding box calculado directo del GeoJSON de circuitos de San Isidro.
+  5. Reintentos con backoff (`_get_con_reintentos`) — Nominatim corta la conexión de vez en
+     cuando bajo uso sostenido; sin esto, una corrida de 125 escuelas puede morir a mitad de
+     camino por un solo timeout transitorio.
+  6. Un puñado de direcciones no correspondía a ningún nombre de calle que Nominatim reconociera
+     ni con todo lo anterior — se resolvieron a mano: buscando el nombre de la institución
+     directamente como POI, o encontrando el nombre real de la calle en OSM y agregando una
+     sustitución puntual (`_LIBERTADOR_GARBLED`: "RUTA PROV RP 195 SAN MARTIN LIBERTADOR GRAL.
+     AV." → "Avenida del Libertador", el nombre real; `_JM_MORENO`: "J.M.MORENO" → "Jose Maria
+     Moreno", confirmado contra OSM que es esa Moreno y no otra de las 3 que hay en el partido).
+- **Gotcha real, ya pisado una vez — 2 escuelas NUNCA deben compartir la misma coordenada
+  exacta:** es la señal inequívoca del bug #3 de arriba. `import_locales_votacion.py` valida
+  esto después de geocodificar: cualquier grupo de 2+ escuelas con la misma coordenada exacta se
+  invalida entera (mejor sin pin que con un pin mentiroso). Si se vuelve a tocar el geocoding,
+  correr esta validación es obligatorio, no opcional — sin ella, el bug pasa completamente
+  desapercibido (no tira error, "geocodifica bien").
+- **Gotcha real de DuckDB, distinto al de circuitos/municipios — un UPDATE plano (no solo
+  `ON CONFLICT DO UPDATE`) sobre una fila que es blanco de una FK falla si el DELETE que la
+  liberó está pendiente en la MISMA transacción.** Pasó corrigiendo el bug de arriba: la primera
+  carga había insertado los 3 establecimientos con la coordenada duplicada, y como
+  `core.establecimientos` usaba `ON CONFLICT DO NOTHING`, la corrección nunca llegaba a la base
+  ya poblada. `load_locales_votacion.py` ahora hace `UPDATE` explícito cuando el establecimiento
+  ya existe (no re-inserta, `ON CONFLICT DO NOTHING` sigue para los nuevos) — pero el
+  `DELETE FROM core.mesas WHERE eleccion_id=...` que libera la FK tiene que correr en su PROPIA
+  transacción (autocommit), ANTES de abrir el `BEGIN TRANSACTION` que hace los UPDATE/INSERT;
+  con el DELETE dentro de la misma transacción (aunque antes en el orden de statements) DuckDB
+  igual tira `ConstraintException`. Si en el futuro hay mesas de OTRA elección apuntando al
+  mismo establecimiento, este DELETE no alcanza — no es el caso hoy.
 - **Endpoint nuevo:** `GET /api/v1/mapa/establecimientos?eleccion_id=...`
   (`app/repositories/mapa.py::get_establecimientos_geojson`) — a diferencia de `/circuitos`, una
   FeatureCollection vacía es una respuesta VÁLIDA (la mayoría de las elecciones no tienen esto
