@@ -10,4 +10,5 @@ services:
       - key: PYTHONPATH
         value: .
       - key: CORS_ALLOWED_ORIGIN
-        sync: false # setear a mano: la URL de GitHub Pages, p.ej. https://<usuario>.github.io
+        sync: false # setear a mano: uno o varios orígenes separados por coma, p.ej.
+        # https://panel-de-gestion-lla-si.netlify.app,https://<usuario>.github.io
